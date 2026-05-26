@@ -1,0 +1,12 @@
+stocksight.db
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.claude/

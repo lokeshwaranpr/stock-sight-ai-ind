@@ -66,18 +66,53 @@ with tab_login:
 # ── Register ──────────────────────────────────────────────────────────────────
 with tab_register:
     st.markdown("<br>", unsafe_allow_html=True)
-    with st.form("register_form", clear_on_submit=True):
-        reg_email    = st.text_input("Email", placeholder="you@example.com", key="reg_email")
-        reg_username = st.text_input("Username", placeholder="johndoe", key="reg_user")
-        reg_pw       = st.text_input(
-            "Password", type="password",
-            placeholder="Min 8 chars, 1 uppercase, 1 digit",
-            key="reg_pw",
+
+    reg_email    = st.text_input("Email", placeholder="you@example.com", key="reg_email")
+    reg_username = st.text_input("Username", placeholder="johndoe (min 3 chars)", key="reg_user")
+    reg_pw       = st.text_input("Password", type="password",
+                                  placeholder="Create a strong password", key="reg_pw")
+
+    # ── Real-time password requirements ──────────────────────────────────────
+    if reg_pw:
+        ok_len   = len(reg_pw) >= 8
+        ok_upper = any(c.isupper() for c in reg_pw)
+        ok_digit = any(c.isdigit() for c in reg_pw)
+
+        def _row(ok: bool, label: str) -> str:
+            color = "#4ade80" if ok else "#f87171"
+            icon  = "✓" if ok else "✗"
+            return (
+                f'<div style="color:{color}; font-size:12px; margin:4px 0; '
+                f'display:flex; align-items:center; gap:8px;">'
+                f'<span style="font-weight:700; font-size:14px;">{icon}</span>'
+                f'<span>{label}</span></div>'
+            )
+
+        mhtml(
+            '<div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px;'
+            ' padding:10px 14px; margin:2px 0 8px 0;">'
+            '<div style="color:#64748b; font-size:11px; letter-spacing:.06em;'
+            ' text-transform:uppercase; margin-bottom:8px;">Password requirements</div>'
+            + _row(ok_len,   "At least 8 characters")
+            + _row(ok_upper, "At least one uppercase letter (A–Z)")
+            + _row(ok_digit, "At least one number (0–9)")
+            + '</div>'
         )
-        reg_pw2   = st.text_input("Confirm Password", type="password", key="reg_pw2")
-        reg_submit = st.form_submit_button(
-            "Create Account", use_container_width=True, type="primary"
-        )
+
+    reg_pw2 = st.text_input("Confirm Password", type="password",
+                              placeholder="Re-enter your password", key="reg_pw2")
+
+    # Confirm-password match indicator
+    if reg_pw and reg_pw2:
+        if reg_pw == reg_pw2:
+            mhtml('<div style="color:#4ade80; font-size:12px; margin:2px 0 6px 0;">'
+                  '✓ &nbsp;Passwords match</div>')
+        else:
+            mhtml('<div style="color:#f87171; font-size:12px; margin:2px 0 6px 0;">'
+                  '✗ &nbsp;Passwords do not match</div>')
+
+    reg_submit = st.button("Create Account", use_container_width=True,
+                            type="primary", key="reg_submit")
 
     if reg_submit:
         if not all([reg_email, reg_username, reg_pw, reg_pw2]):

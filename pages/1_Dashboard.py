@@ -86,7 +86,8 @@ with st.sidebar:
         default=["SMA 20", "SMA 50"],
     )
     st.divider()
-    run = st.button("🚀 Run Analysis", use_container_width=True, type="primary")
+    if st.button("🚀 Run Analysis", use_container_width=True, type="primary"):
+        st.session_state["analysis_run"] = True
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("# 📈 StockSight India")
@@ -94,7 +95,7 @@ st.markdown("*Real-time NSE & BSE data · Technical indicators · AI price forec
 st.divider()
 
 # ── Landing state ─────────────────────────────────────────────────────────────
-if not run:
+if not st.session_state.get("analysis_run"):
     col_l, col_r = st.columns(2)
     with col_l:
         st.markdown("### 🌟 Popular Picks")

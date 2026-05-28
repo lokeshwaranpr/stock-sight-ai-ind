@@ -103,16 +103,18 @@ for item in watchlist:
 
     with col_price:
         with st.spinner(""):
-            df, _ = fetch_and_engineer(full_tick, "5d")
+            df, _ = fetch_and_engineer(full_tick, "3mo")
         if df is not None and not df.empty:
-            last = df["Close"].iloc[-1]
-            prev = df["Close"].iloc[-2] if len(df) > 1 else last
-            pct  = (last - prev) / prev * 100
-            rsi  = df["RSI"].iloc[-1] if "RSI" in df.columns else float("nan")
+            last  = df["Close"].iloc[-1]
+            prev  = df["Close"].iloc[-2] if len(df) > 1 else last
+            pct1d = (last - prev) / prev * 100
+            prev5 = df["Close"].iloc[-6] if len(df) >= 6 else df["Close"].iloc[0]
+            pct5d = (last - prev5) / prev5 * 100
+            rsi   = df["RSI"].iloc[-1] if "RSI" in df.columns else float("nan")
             pcols = st.columns(3)
-            metric_card(pcols[0], "Last",     f"₹{last:,.2f}", delta=pct)
+            metric_card(pcols[0], "Last",     f"₹{last:,.2f}", delta=pct1d)
             metric_card(pcols[1], "RSI (14)", f"{rsi:.1f}")
-            metric_card(pcols[2], "5d Chg",   f"{pct:+.2f}%")
+            metric_card(pcols[2], "5d Chg",   f"{pct5d:+.2f}%")
         else:
             st.warning(f"No data for {full_tick}")
 

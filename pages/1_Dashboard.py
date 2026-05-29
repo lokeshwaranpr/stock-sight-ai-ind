@@ -170,35 +170,46 @@ metric_card(cols[4], "RSI (14)",    f"{rsi:.1f}")
 # ── Candlestick + indicators ──────────────────────────────────────────────────
 has_rsi  = "RSI"  in show_indicators
 has_macd = "MACD" in show_indicators
-rows     = 1 + int(has_rsi) + int(has_macd)
+
+# Always add a volume row (row 2), then RSI and MACD
+n_sub   = int(has_rsi) + int(has_macd)
+n_rows  = 2 + n_sub   # candle + volume + optional sub-charts
+
+candle_h = 0.55
+vol_h    = 0.10
+sub_h    = round((1 - candle_h - vol_h) / n_sub, 3) if n_sub else 0
+row_heights = [candle_h, vol_h] + [sub_h] * n_sub
 
 fig = make_subplots(
-    rows=rows, cols=1,
+    rows=n_rows, cols=1,
     shared_xaxes=True,
-    row_heights=[0.6] + [0.2] * (rows - 1),
-    vertical_spacing=0.04,
+    row_heights=row_heights,
+    vertical_spacing=0.02,
 )
 
+# Candlestick
 fig.add_trace(
     go.Candlestick(
         x=df.index, open=df["Open"], high=df["High"],
         low=df["Low"], close=df["Close"], name="Price",
         increasing_line_color="#22c55e", decreasing_line_color="#ef4444",
-        increasing_fillcolor="#22c55e",  decreasing_fillcolor="#ef4444",
+        increasing_fillcolor="#16a34a",  decreasing_fillcolor="#dc2626",
+        line=dict(width=1),
     ),
     row=1, col=1,
 )
 
+# Overlay indicators on candle row
 _overlays = {
-    "SMA 20": ("SMA_20", "#60a5fa"),
-    "SMA 50": ("SMA_50", "#f59e0b"),
-    "EMA 20": ("EMA_20", "#a78bfa"),
+    "SMA 20": ("SMA_20", "#60a5fa", 2),
+    "SMA 50": ("SMA_50", "#f59e0b", 2),
+    "EMA 20": ("EMA_20", "#c084fc", 2),
 }
-for key, (col_name_ind, color) in _overlays.items():
+for key, (col_name_ind, color, lw) in _overlays.items():
     if key in show_indicators:
         fig.add_trace(
             go.Scatter(x=df.index, y=df[col_name_ind], name=key,
-                       line=dict(color=color, width=1.5),
+                       line=dict(color=color, width=lw),
                        hovertemplate=f"{key}: ₹%{{y:,.2f}}<extra></extra>"),
             row=1, col=1,
         )
@@ -206,63 +217,136 @@ for key, (col_name_ind, color) in _overlays.items():
 if "Bollinger Bands" in show_indicators:
     fig.add_trace(
         go.Scatter(x=df.index, y=df["BB_upper"], name="BB Upper",
-                   line=dict(color="#94a3b8", width=1, dash="dash"),
+                   line=dict(color="#7dd3fc", width=1.2, dash="dot"),
                    hovertemplate="BB Upper: ₹%{y:,.2f}<extra></extra>"),
         row=1, col=1,
     )
     fig.add_trace(
         go.Scatter(x=df.index, y=df["BB_lower"], name="BB Lower",
-                   line=dict(color="#94a3b8", width=1, dash="dash"),
-                   fill="tonexty", fillcolor="rgba(148,163,184,0.07)",
+                   line=dict(color="#7dd3fc", width=1.2, dash="dot"),
+                   fill="tonexty", fillcolor="rgba(125,211,252,0.06)",
                    hovertemplate="BB Lower: ₹%{y:,.2f}<extra></extra>"),
         row=1, col=1,
     )
 
-sub_row = 2
+# Volume bars (row 2, colored by candle direction)
+vol_colors = [
+    "#16a34a" if c >= o else "#dc2626"
+    for c, o in zip(df["Close"], df["Open"])
+]
+fig.add_trace(
+    go.Bar(x=df.index, y=df["Volume"], name="Volume",
+           marker_color=vol_colors, marker_opacity=0.6,
+           hovertemplate="%{x|%d %b %Y}<br>Volume: %{y:,.0f}<extra></extra>",
+           showlegend=False),
+    row=2, col=1,
+)
+fig.update_yaxes(tickformat=".2s", title_text="Vol",
+                 title_font=dict(size=10, color="#475569"),
+                 tickfont=dict(size=9, color="#475569"), row=2, col=1)
+
+# RSI and MACD sub-charts
+sub_row = 3
 if has_rsi:
     fig.add_trace(
         go.Scatter(x=df.index, y=df["RSI"], name="RSI",
-                   line=dict(color="#e879f9", width=1.5),
+                   line=dict(color="#e879f9", width=2),
                    hovertemplate="RSI: %{y:.1f}<extra></extra>"),
         row=sub_row, col=1,
     )
-    fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", row=sub_row, col=1)
-    fig.add_hline(y=30, line_dash="dash", line_color="#22c55e", row=sub_row, col=1)
-    fig.update_yaxes(title_text="RSI", row=sub_row, col=1)
+    # Overbought / oversold bands
+    fig.add_hrect(y0=70, y1=100, fillcolor="rgba(239,68,68,0.06)",
+                  line_width=0, row=sub_row, col=1)
+    fig.add_hrect(y0=0, y1=30, fillcolor="rgba(34,197,94,0.06)",
+                  line_width=0, row=sub_row, col=1)
+    fig.add_hline(y=70, line_dash="dash", line_color="#ef4444",
+                  line_width=1.2, row=sub_row, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="#22c55e",
+                  line_width=1.2, row=sub_row, col=1)
+    fig.add_hline(y=50, line_dash="dot", line_color="#475569",
+                  line_width=1, row=sub_row, col=1)
+    fig.update_yaxes(title_text="RSI", range=[0, 100],
+                     title_font=dict(size=10, color="#475569"),
+                     tickfont=dict(size=9, color="#475569"),
+                     tickvals=[30, 50, 70], row=sub_row, col=1)
     sub_row += 1
 
 if has_macd:
-    macd_colors = ["#22c55e" if v >= 0 else "#ef4444" for v in df["MACD_hist"].fillna(0)]
+    macd_colors = ["#22c55e" if v >= 0 else "#ef4444"
+                   for v in df["MACD_hist"].fillna(0)]
     fig.add_trace(
-        go.Bar(x=df.index, y=df["MACD_hist"], name="MACD Hist",
-               marker_color=macd_colors,
-               hovertemplate="Histogram: %{y:.4f}<extra></extra>"),
+        go.Bar(x=df.index, y=df["MACD_hist"], name="Histogram",
+               marker_color=macd_colors, marker_opacity=0.7,
+               hovertemplate="Hist: %{y:.3f}<extra></extra>"),
         row=sub_row, col=1,
     )
     fig.add_trace(
         go.Scatter(x=df.index, y=df["MACD"], name="MACD",
-                   line=dict(color="#60a5fa", width=1.5),
-                   hovertemplate="MACD: %{y:.4f}<extra></extra>"),
+                   line=dict(color="#60a5fa", width=2),
+                   hovertemplate="MACD: %{y:.3f}<extra></extra>"),
         row=sub_row, col=1,
     )
     fig.add_trace(
         go.Scatter(x=df.index, y=df["MACD_signal"], name="Signal",
-                   line=dict(color="#f59e0b", width=1.5),
-                   hovertemplate="Signal: %{y:.4f}<extra></extra>"),
+                   line=dict(color="#fb923c", width=2),
+                   hovertemplate="Signal: %{y:.3f}<extra></extra>"),
         row=sub_row, col=1,
     )
-    fig.update_yaxes(title_text="MACD", row=sub_row, col=1)
+    fig.add_hline(y=0, line_color="#475569", line_width=1, row=sub_row, col=1)
+    fig.update_yaxes(title_text="MACD",
+                     title_font=dict(size=10, color="#475569"),
+                     tickfont=dict(size=9, color="#475569"), row=sub_row, col=1)
 
+# Global layout
+_chart_height = 620 if n_rows == 2 else 620 + n_sub * 160
 fig.update_layout(
-    height=600 if rows == 1 else 400 + rows * 150,
+    height=_chart_height,
     template="plotly_dark",
-    paper_bgcolor="#0a0f1e", plot_bgcolor="#0a0f1e",
+    paper_bgcolor="#0a0f1e",
+    plot_bgcolor="#0a0f1e",
     xaxis_rangeslider_visible=False,
-    legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1),
-    margin=dict(l=0, r=0, t=10, b=0),
+    legend=dict(
+        orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1,
+        bgcolor="rgba(10,15,30,0.85)", bordercolor="#1e3a5f", borderwidth=1,
+        font=dict(size=11, color="#cbd5e1"),
+    ),
+    margin=dict(l=10, r=10, t=50, b=10),
     yaxis_tickprefix="₹",
+    font=dict(family="Inter, sans-serif", size=11, color="#94a3b8"),
+    hoverlabel=dict(
+        bgcolor="#1e293b", bordercolor="#334155",
+        font_size=12, font_color="#f1f5f9",
+    ),
+    hovermode="x unified",
 )
-st.plotly_chart(fig, use_container_width=True)
+
+# Grid lines on every subplot
+for r in range(1, n_rows + 1):
+    fig.update_xaxes(
+        gridcolor="#1e293b", gridwidth=1,
+        zerolinecolor="#334155", zerolinewidth=1,
+        showspikes=True, spikecolor="#475569",
+        spikethickness=1, spikedash="dot", spikemode="across",
+        row=r, col=1,
+    )
+    fig.update_yaxes(
+        gridcolor="#1e293b", gridwidth=1,
+        zerolinecolor="#334155", zerolinewidth=1,
+        row=r, col=1,
+    )
+
+# Price axis font
+fig.update_yaxes(tickprefix="₹", tickfont=dict(size=11, color="#94a3b8"), row=1, col=1)
+# Hide x-axis labels on all rows except the last
+for r in range(1, n_rows):
+    fig.update_xaxes(showticklabels=False, row=r, col=1)
+fig.update_xaxes(tickfont=dict(size=10, color="#64748b"), row=n_rows, col=1)
+
+st.plotly_chart(fig, use_container_width=True, config={
+    "displayModeBar": True,
+    "modeBarButtonsToRemove": ["lasso2d", "select2d", "autoScale2d"],
+    "toImageButtonOptions": {"format": "png", "filename": f"{ticker}_chart", "scale": 2},
+})
 
 # ── Prophet forecast ──────────────────────────────────────────────────────────
 st.subheader(f"🔮 AI Forecast — Next {forecast_days} Trading Days")
@@ -291,28 +375,79 @@ fcast_hist = forecast[forecast["ds"] <= cutoff]
 fcast_f    = forecast[forecast["ds"] >  cutoff]
 
 fig2 = go.Figure()
-fig2.add_trace(go.Scatter(x=prophet_df["ds"], y=prophet_df["y"], name="Actual",
-                          line=dict(color="#60a5fa", width=2),
-                          hovertemplate="Actual: ₹%{y:,.2f}<extra></extra>"))
-fig2.add_trace(go.Scatter(x=fcast_hist["ds"], y=fcast_hist["yhat"], name="Model Fit",
-                          line=dict(color="#94a3b8", width=1, dash="dash"),
-                          hovertemplate="Fit: ₹%{y:,.2f}<extra></extra>"))
-band_x = list(fcast_f["ds"]) + list(fcast_f["ds"])[::-1]
-band_y = list(fcast_f["yhat_upper"]) + list(fcast_f["yhat_lower"])[::-1]
-fig2.add_trace(go.Scatter(x=band_x, y=band_y, name="80% CI",
-                          fill="toself", fillcolor="rgba(34,197,94,0.10)",
-                          line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip"))
-fig2.add_trace(go.Scatter(x=fcast_f["ds"], y=fcast_f["yhat"], name="Forecast",
-                          line=dict(color="#22c55e", width=2.5),
-                          hovertemplate="Forecast: ₹%{y:,.2f}<extra></extra>"))
-fig2.update_layout(
-    height=420, template="plotly_dark",
-    paper_bgcolor="#0a0f1e", plot_bgcolor="#0a0f1e",
-    legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1),
-    margin=dict(l=0, r=0, t=10, b=0),
-    yaxis_tickprefix="₹",
+
+# Actual price line
+fig2.add_trace(go.Scatter(
+    x=prophet_df["ds"], y=prophet_df["y"], name="Actual Price",
+    line=dict(color="#60a5fa", width=2.5),
+    hovertemplate="%{x|%d %b %Y}<br>Actual: ₹%{y:,.2f}<extra></extra>",
+))
+
+# Model fit on historical period
+fig2.add_trace(go.Scatter(
+    x=fcast_hist["ds"], y=fcast_hist["yhat"], name="Model Fit",
+    line=dict(color="#475569", width=1.5, dash="dot"),
+    hovertemplate="Fit: ₹%{y:,.2f}<extra></extra>",
+))
+
+# Confidence band (filled between upper and lower)
+fig2.add_trace(go.Scatter(
+    x=fcast_f["ds"], y=fcast_f["yhat_upper"], name="Upper (80% CI)",
+    line=dict(color="rgba(34,197,94,0)", width=0),
+    hovertemplate="Upper: ₹%{y:,.2f}<extra></extra>",
+    showlegend=False,
+))
+fig2.add_trace(go.Scatter(
+    x=fcast_f["ds"], y=fcast_f["yhat_lower"], name="80% Confidence Band",
+    line=dict(color="rgba(34,197,94,0)", width=0),
+    fill="tonexty", fillcolor="rgba(34,197,94,0.18)",
+    hovertemplate="Lower: ₹%{y:,.2f}<extra></extra>",
+))
+
+# Forecast centre line
+fig2.add_trace(go.Scatter(
+    x=fcast_f["ds"], y=fcast_f["yhat"], name="Forecast",
+    line=dict(color="#22c55e", width=3),
+    hovertemplate="%{x|%d %b %Y}<br>Forecast: ₹%{y:,.2f}<extra></extra>",
+))
+
+# Vertical divider at forecast start
+fig2.add_vline(
+    x=str(cutoff), line_width=1.5, line_dash="dash", line_color="#475569",
+    annotation_text=f"  Forecast →", annotation_position="top left",
+    annotation_font=dict(color="#64748b", size=11),
 )
-st.plotly_chart(fig2, use_container_width=True)
+
+fig2.update_layout(
+    height=480,
+    template="plotly_dark",
+    paper_bgcolor="#0a0f1e",
+    plot_bgcolor="#0a0f1e",
+    legend=dict(
+        orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1,
+        bgcolor="rgba(10,15,30,0.85)", bordercolor="#1e3a5f", borderwidth=1,
+        font=dict(size=11, color="#cbd5e1"),
+    ),
+    margin=dict(l=10, r=10, t=50, b=10),
+    yaxis=dict(
+        tickprefix="₹", gridcolor="#1e293b", gridwidth=1,
+        zerolinecolor="#334155", tickfont=dict(size=11, color="#94a3b8"),
+    ),
+    xaxis=dict(
+        gridcolor="#1e293b", gridwidth=1,
+        tickfont=dict(size=10, color="#64748b"),
+        showspikes=True, spikecolor="#475569", spikethickness=1, spikedash="dot",
+    ),
+    font=dict(family="Inter, sans-serif", size=11, color="#94a3b8"),
+    hoverlabel=dict(bgcolor="#1e293b", bordercolor="#334155",
+                    font_size=12, font_color="#f1f5f9"),
+    hovermode="x unified",
+)
+st.plotly_chart(fig2, use_container_width=True, config={
+    "displayModeBar": True,
+    "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+    "toImageButtonOptions": {"format": "png", "filename": f"{ticker}_forecast", "scale": 2},
+})
 
 end_price  = fcast_f["yhat"].iloc[-1]
 exp_change = (end_price - last) / last * 100
@@ -325,25 +460,58 @@ metric_card(fcols[2], "Lower Bound (80%)",             f"₹{fcast_f['yhat_lower
 st.subheader("📉 Returns & Volatility")
 col_ret, col_vol = st.columns(2)
 
+_sub_layout = dict(
+    template="plotly_dark",
+    paper_bgcolor="#0a0f1e", plot_bgcolor="#0a0f1e",
+    margin=dict(l=10, r=10, t=50, b=10),
+    showlegend=False,
+    font=dict(family="Inter, sans-serif", size=11, color="#94a3b8"),
+    hoverlabel=dict(bgcolor="#1e293b", bordercolor="#334155",
+                    font_size=12, font_color="#f1f5f9"),
+    xaxis=dict(gridcolor="#1e293b", tickfont=dict(size=10, color="#64748b"),
+               showspikes=True, spikecolor="#475569", spikethickness=1, spikedash="dot"),
+    yaxis=dict(gridcolor="#1e293b", zerolinecolor="#334155",
+               tickfont=dict(size=10, color="#94a3b8")),
+    hovermode="x unified",
+)
+
 with col_ret:
     ret_colors = ["#22c55e" if v >= 0 else "#ef4444" for v in df["Daily_Return"].fillna(0)]
-    fig_r = go.Figure(go.Bar(x=df.index, y=df["Daily_Return"],
-                             marker_color=ret_colors,
-                             hovertemplate="%{x|%b %d, %Y}: %{y:.2f}%<extra></extra>"))
-    fig_r.update_layout(height=280, title="Daily Returns (%)", template="plotly_dark",
-                        paper_bgcolor="#0a0f1e", plot_bgcolor="#0a0f1e",
-                        margin=dict(l=0, r=0, t=40, b=0), showlegend=False)
+    fig_r = go.Figure()
+    fig_r.add_trace(go.Bar(
+        x=df.index, y=df["Daily_Return"],
+        marker_color=ret_colors, marker_opacity=0.8,
+        hovertemplate="%{x|%d %b %Y}<br>Return: %{y:+.2f}%<extra></extra>",
+    ))
+    fig_r.add_hline(y=0, line_color="#334155", line_width=1.5)
+    fig_r.update_layout(
+        height=320, title=dict(text="📊 Daily Returns (%)", font=dict(size=13, color="#cbd5e1")),
+        yaxis_ticksuffix="%",
+        **_sub_layout,
+    )
     st.plotly_chart(fig_r, use_container_width=True)
 
 with col_vol:
-    fig_v = go.Figure(go.Scatter(x=df.index, y=df["Volatility"],
-                                 fill="tozeroy", fillcolor="rgba(251,191,36,0.15)",
-                                 line=dict(color="#fbbf24", width=2),
-                                 hovertemplate="%{x|%b %d, %Y}: %{y:.2f}%<extra></extra>"))
-    fig_v.update_layout(height=280, title="20-Day Rolling Volatility (%)",
-                        template="plotly_dark",
-                        paper_bgcolor="#0a0f1e", plot_bgcolor="#0a0f1e",
-                        margin=dict(l=0, r=0, t=40, b=0), showlegend=False)
+    fig_v = go.Figure()
+    fig_v.add_trace(go.Scatter(
+        x=df.index, y=df["Volatility"],
+        fill="tozeroy", fillcolor="rgba(251,191,36,0.12)",
+        line=dict(color="#fbbf24", width=2.5),
+        hovertemplate="%{x|%d %b %Y}<br>Volatility: %{y:.2f}%<extra></extra>",
+    ))
+    # Mark current volatility level
+    curr_vol = df["Volatility"].iloc[-1]
+    fig_v.add_hline(y=curr_vol, line_dash="dot", line_color="#fb923c",
+                    line_width=1.2,
+                    annotation_text=f"Now: {curr_vol:.2f}%",
+                    annotation_position="top right",
+                    annotation_font=dict(color="#fb923c", size=10))
+    fig_v.update_layout(
+        height=320,
+        title=dict(text="🌊 20-Day Rolling Volatility (%)", font=dict(size=13, color="#cbd5e1")),
+        yaxis_ticksuffix="%",
+        **_sub_layout,
+    )
     st.plotly_chart(fig_v, use_container_width=True)
 
 # ── Raw data ──────────────────────────────────────────────────────────────────

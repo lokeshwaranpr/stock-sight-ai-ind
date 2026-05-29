@@ -412,10 +412,11 @@ fig2.add_trace(go.Scatter(
 ))
 
 # Vertical divider at forecast start
-fig2.add_vline(
-    x=str(cutoff), line_width=1.5, line_dash="dash", line_color="#475569",
-    annotation_text=f"  Forecast →", annotation_position="top left",
-    annotation_font=dict(color="#64748b", size=11),
+fig2.add_vline(x=cutoff, line_width=1.5, line_dash="dash", line_color="#475569")
+fig2.add_annotation(
+    x=cutoff, y=0.97, yref="paper",
+    text="Forecast →", showarrow=False, xanchor="left",
+    font=dict(color="#64748b", size=11),
 )
 
 fig2.update_layout(

@@ -122,8 +122,9 @@ for item in watchlist:
         st.markdown("<br>", unsafe_allow_html=True)
         # Deep-link: switch to dashboard with this ticker pre-selected
         if st.button("📈 Analyse", key=f"analyse_{full_tick}", use_container_width=True):
-            st.session_state["wl_goto_ticker"]   = ticker
-            st.session_state["wl_goto_exchange"] = exchange
+            st.session_state["dash_goto_ticker"]  = ticker
+            st.session_state["dash_goto_exchange"] = exchange
+            st.session_state["analysis_run"] = True
             st.switch_page("pages/1_Dashboard.py")
         if st.button("🗑️ Remove", key=f"remove_{full_tick}", use_container_width=True):
             remove_from_watchlist(user["id"], ticker, exchange)

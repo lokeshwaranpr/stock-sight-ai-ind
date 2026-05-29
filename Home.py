@@ -18,9 +18,9 @@ st.set_page_config(
 bootstrap()   # init DB + seed admin on first run
 inject_css()
 
-# Already logged in → go straight to dashboard
+# Already logged in → go to market home
 if current_user():
-    st.switch_page("pages/1_Dashboard.py")
+    st.switch_page("pages/0_Market_Home.py")
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
 mhtml("""
@@ -57,7 +57,7 @@ with tab_login:
             else:
                 login(user)
                 st.success(f"Welcome back, **{user['username']}**!")
-                st.switch_page("pages/1_Dashboard.py")
+                st.switch_page("pages/0_Market_Home.py")
 
     mhtml("""<p style="color:#475569; font-size:12px; text-align:center; margin-top:12px;">
         Demo admin: <code>admin@stocksight.in</code> / <code>Admin@123!</code>
@@ -127,7 +127,7 @@ with tab_register:
             else:
                 login(user)
                 st.success(f"Account created! Welcome, **{user['username']}**.")
-                st.switch_page("pages/1_Dashboard.py")
+                st.switch_page("pages/0_Market_Home.py")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("<br><br>", unsafe_allow_html=True)

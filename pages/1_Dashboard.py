@@ -26,22 +26,26 @@ st.set_page_config(
 user = require_auth()
 inject_css()
 
+# Handle deep-link from Market Home / Watchlist (pre-populate ticker + auto-run)
+_goto = st.session_state.pop("dash_goto_ticker", None)
+if _goto:
+    st.session_state["_dash_pick_by"]      = "Manual Ticker"
+    st.session_state["_dash_manual_input"] = _goto
+    st.session_state["analysis_run"]       = True
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🇮🇳 StockSight India")
     st.markdown("*NSE · BSE · Nifty 50*")
 
-    # User info
     role_color = "#c084fc" if user["role"] == "admin" else "#4ade80"
     mhtml(
-        f"""<div style="background:#111827; border:1px solid #1e3a5f; border-radius:10px;
-            padding:10px 14px; margin-bottom:4px;">
-            <span style="color:#94a3b8; font-size:12px;">Signed in as</span><br>
-            <span style="color:#f1f5f9; font-weight:700;">@{user['username']}</span>
-            <span style="color:{role_color}; font-size:11px; margin-left:6px;">
-                [{user['role'].upper()}]
-            </span>
-        </div>"""
+        f'<div style="background:#111827; border:1px solid #1e3a5f; border-radius:10px;'
+        f' padding:10px 14px; margin-bottom:4px;">'
+        f'<span style="color:#94a3b8; font-size:12px;">Signed in as</span><br>'
+        f'<span style="color:#f1f5f9; font-weight:700;">@{user["username"]}</span>'
+        f'<span style="color:{role_color}; font-size:11px; margin-left:6px;">'
+        f'[{user["role"].upper()}]</span></div>'
     )
     if st.button("Sign Out", use_container_width=True):
         logout()
@@ -53,18 +57,24 @@ with st.sidebar:
     exch_lbl = "NSE" if suffix == ".NS" else "BSE"
 
     st.markdown("#### Stock Selection")
-    pick_by = st.radio("Pick by", ["Sector", "Nifty 50", "Manual Ticker"], horizontal=True)
+    _default_pick = st.session_state.get("_dash_pick_by", "Sector")
+    pick_by = st.radio(
+        "Pick by", ["Sector", "Nifty 50", "Manual Ticker"],
+        index=["Sector", "Nifty 50", "Manual Ticker"].index(_default_pick),
+        horizontal=True,
+    )
 
     base_ticker: str
     if pick_by == "Sector":
-        sector       = st.selectbox("Sector", list(SECTORS.keys()))
+        sector        = st.selectbox("Sector", list(SECTORS.keys()))
         sector_stocks = SECTORS[sector]
         company_disp  = st.selectbox("Company", list(sector_stocks.values()))
         base_ticker   = next(k for k, v in sector_stocks.items() if v == company_disp)
     elif pick_by == "Nifty 50":
         base_ticker = st.selectbox("Nifty 50 Stock", sorted(NIFTY50))
     else:
-        base_ticker = st.text_input("Ticker Symbol", value="RELIANCE").upper().strip()
+        _default_sym = st.session_state.get("_dash_manual_input", "RELIANCE")
+        base_ticker  = st.text_input("Ticker Symbol", value=_default_sym).upper().strip()
 
     ticker = base_ticker + suffix
     st.markdown(f"**Full ticker:** `{ticker}`")

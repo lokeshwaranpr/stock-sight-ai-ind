@@ -20,17 +20,15 @@ if _URL.startswith("postgres://"):
     _URL = _URL.replace("postgres://", "postgresql://", 1)
 
 if _URL.startswith("sqlite"):
-    _kwargs: dict = {"check_same_thread": False}
-    engine = create_engine(_URL, connect_args=_kwargs)
+    engine = create_engine(_URL, connect_args={"check_same_thread": False})
 else:
-    # PostgreSQL — require SSL (needed for Supabase, Railway, Render, etc.)
-    engine = create_engine(
-        _URL,
-        connect_args={"sslmode": "require"},
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-    )
+    from sqlalchemy.pool import NullPool
+    # Embed sslmode in URL so it works regardless of psycopg2 version
+    if "sslmode" not in _URL:
+        _URL += ("&" if "?" in _URL else "?") + "sslmode=require"
+    # NullPool is correct for Streamlit Cloud — no persistent processes
+    engine = create_engine(_URL, poolclass=NullPool)
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 

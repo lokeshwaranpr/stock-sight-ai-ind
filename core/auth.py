@@ -224,7 +224,20 @@ def get_stats() -> dict:
 
 def bootstrap() -> None:
     """Create tables and seed default admin on first run."""
-    init_db()
+    import os
+    try:
+        init_db()
+    except Exception as exc:
+        import streamlit as st
+        db_url = os.getenv("DATABASE_URL", "NOT SET")
+        masked  = db_url[:30] + "..." if len(db_url) > 30 else db_url
+        st.error(
+            f"**Database connection failed.**\n\n"
+            f"DATABASE_URL starts with: `{masked}`\n\n"
+            f"Error: `{type(exc).__name__}: {exc}`\n\n"
+            "Check your Streamlit Cloud secrets → DATABASE_URL."
+        )
+        st.stop()
     with SessionLocal() as db:
         if db.query(User).count() == 0:
             db.add(User(

@@ -14,9 +14,23 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 _URL = os.getenv("DATABASE_URL", "sqlite:///stocksight.db")
-_kwargs = {"check_same_thread": False} if _URL.startswith("sqlite") else {}
 
-engine = create_engine(_URL, connect_args=_kwargs)
+# Heroku / Supabase ship "postgres://" — SQLAlchemy 2.x requires "postgresql://"
+if _URL.startswith("postgres://"):
+    _URL = _URL.replace("postgres://", "postgresql://", 1)
+
+if _URL.startswith("sqlite"):
+    _kwargs: dict = {"check_same_thread": False}
+    engine = create_engine(_URL, connect_args=_kwargs)
+else:
+    # PostgreSQL — require SSL (needed for Supabase, Railway, Render, etc.)
+    engine = create_engine(
+        _URL,
+        connect_args={"sslmode": "require"},
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+    )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 

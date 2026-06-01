@@ -12,7 +12,7 @@ from prophet import Prophet
 
 from core.auth import current_user, logout, require_auth, add_to_watchlist
 from core.indicators import (
-    SECTORS, NIFTY50, fetch_and_engineer, make_india_holidays,
+    SECTORS, NIFTY50, fetch_and_engineer, make_india_holidays, get_logo_url,
 )
 from core.styles import inject_css, metric_card, exchange_badge, mhtml
 
@@ -143,11 +143,30 @@ vol   = df["Volume"].iloc[-1]
 rsi   = df["RSI"].iloc[-1]
 
 company_name = info.get("longName", base_ticker)
+logo_url     = get_logo_url(base_ticker, info)
 
-col_name, col_wl = st.columns([4, 1])
+col_logo, col_name, col_wl = st.columns([0.7, 4, 1])
+with col_logo:
+    initials = "".join(w[0] for w in company_name.split()[:2]).upper()
+    logo_img  = (
+        f'<img src="{logo_url}" width="52" height="52"'
+        f' style="position:absolute;top:0;left:0;border-radius:9px;object-fit:cover;"'
+        f' onerror="this.style.display=\'none\'">'
+        if logo_url else ""
+    )
+    mhtml(
+        f'<div style="display:flex;align-items:center;height:72px;">'
+        f'<div style="position:relative;width:52px;height:52px;border-radius:10px;'
+        f'background:linear-gradient(135deg,#1e3a5f,#0f2744);'
+        f'border:1px solid #334155;display:flex;align-items:center;'
+        f'justify-content:center;overflow:hidden;flex-shrink:0;">'
+        f'<span style="color:#60a5fa;font-size:15px;font-weight:800;">{initials}</span>'
+        f'{logo_img}'
+        f'</div></div>'
+    )
 with col_name:
     st.markdown(
-        f"### 🏢 {company_name} "
+        f"### {company_name} "
         + exchange_badge(exch_lbl, suffix),
         unsafe_allow_html=True,
     )

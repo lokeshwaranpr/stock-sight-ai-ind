@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 import yfinance as yf
 
 from core.auth import require_auth, logout
-from core.indicators import MARKET_UNIVERSE
+from core.indicators import MARKET_UNIVERSE, get_logo_url
 from core.styles import inject_css, metric_card, mhtml
 
 st.set_page_config(
@@ -297,18 +297,35 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # ── Stock row card ────────────────────────────────────────────────────────────
 def _stock_row_html(sym: str, price: float, ch1d: float, ch5d: float) -> str:
-    c1d = "#4ade80" if ch1d >= 0 else "#f87171"
-    c5d = "#4ade80" if ch5d >= 0 else "#f87171"
-    arr = "▲" if ch1d >= 0 else "▼"
-    tr5 = "▲" if ch5d >= 0 else "▼"
+    c1d      = "#4ade80" if ch1d >= 0 else "#f87171"
+    c5d      = "#4ade80" if ch5d >= 0 else "#f87171"
+    arr      = "▲" if ch1d >= 0 else "▼"
+    tr5      = "▲" if ch5d >= 0 else "▼"
+    logo_url = get_logo_url(sym)
+    logo_img  = (
+        f'<img src="{logo_url}" width="32" height="32"'
+        f' style="position:absolute;top:0;left:0;border-radius:5px;object-fit:cover;"'
+        f' onerror="this.style.display=\'none\'">'
+        if logo_url else ""
+    )
+    logo_html = (
+        f'<div style="position:relative;width:32px;height:32px;border-radius:6px;'
+        f'background:linear-gradient(135deg,#1e3a5f,#0f2744);border:1px solid #334155;'
+        f'display:flex;align-items:center;justify-content:center;overflow:hidden;'
+        f'margin-right:10px;flex-shrink:0;">'
+        f'<span style="color:#60a5fa;font-size:10px;font-weight:800;">{sym[:2]}</span>'
+        f'{logo_img}</div>'
+    )
     return (
         f'<div style="background:#111827; border:1px solid #1e3a5f; border-radius:10px;'
-        f' padding:12px 16px; margin-bottom:6px;'
+        f' padding:10px 14px; margin-bottom:6px;'
         f' display:flex; justify-content:space-between; align-items:center;">'
+        f'<div style="display:flex; align-items:center;">'
+        f'{logo_html}'
         f'<div>'
-        f'<span style="color:#60a5fa; font-size:16px; font-weight:700; font-family:monospace;">{sym}</span>'
+        f'<span style="color:#60a5fa; font-size:15px; font-weight:700; font-family:monospace;">{sym}</span>'
         f'<span style="color:#475569; font-size:11px; margin-left:6px;">NSE</span>'
-        f'</div>'
+        f'</div></div>'
         f'<div style="text-align:right;">'
         f'<span style="color:#f1f5f9; font-size:15px; font-weight:600;">₹{price:,.2f}</span><br>'
         f'<span style="color:{c1d}; font-size:13px; font-weight:700;">{arr} {ch1d:+.2f}%</span>'

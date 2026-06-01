@@ -8,7 +8,7 @@ from core.auth import (
     current_user, logout, require_auth,
     add_to_watchlist, get_watchlist, remove_from_watchlist,
 )
-from core.indicators import SECTORS, fetch_and_engineer
+from core.indicators import SECTORS, fetch_and_engineer, get_logo_url
 from core.styles import inject_css, metric_card, mhtml
 
 st.set_page_config(
@@ -92,13 +92,30 @@ for item in watchlist:
     col_info, col_price, col_actions = st.columns([3, 4, 2])
 
     with col_info:
+        logo_url = get_logo_url(ticker)
+        logo_img  = (
+            f'<img src="{logo_url}" width="36" height="36"'
+            f' style="position:absolute;top:0;left:0;border-radius:7px;object-fit:cover;"'
+            f' onerror="this.style.display=\'none\'">'
+            if logo_url else ""
+        )
+        logo_html = (
+            f'<div style="position:relative;width:36px;height:36px;border-radius:8px;'
+            f'background:linear-gradient(135deg,#1e3a5f,#0f2744);border:1px solid #334155;'
+            f'display:flex;align-items:center;justify-content:center;overflow:hidden;'
+            f'margin-right:10px;flex-shrink:0;">'
+            f'<span style="color:#60a5fa;font-size:11px;font-weight:800;">{ticker[:2]}</span>'
+            f'{logo_img}</div>'
+        )
         mhtml(
-            f"""<div style="padding:8px 0;">
-                <span style="color:#60a5fa; font-size:18px; font-weight:700;
-                    font-family:monospace;">{ticker}</span>
-                <span class="exchange-badge {badge_cls}">{exch_lbl}</span><br>
-                <span style="color:#475569; font-size:11px;">Added {added_fmt}</span>
-            </div>"""
+            f'<div style="padding:8px 0; display:flex; align-items:center;">'
+            f'{logo_html}'
+            f'<div>'
+            f'<span style="color:#60a5fa; font-size:18px; font-weight:700;'
+            f' font-family:monospace;">{ticker}</span>'
+            f'<span class="exchange-badge {badge_cls}">{exch_lbl}</span><br>'
+            f'<span style="color:#475569; font-size:11px;">Added {added_fmt}</span>'
+            f'</div></div>'
         )
 
     with col_price:

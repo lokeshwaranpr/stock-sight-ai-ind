@@ -13,23 +13,27 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
-_URL = os.getenv("DATABASE_URL", "sqlite:///stocksight.db")
-
-# Heroku / Supabase ship "postgres://" — SQLAlchemy 2.x requires "postgresql://"
-if _URL.startswith("postgres://"):
-    _URL = _URL.replace("postgres://", "postgresql://", 1)
-
-if _URL.startswith("sqlite"):
-    engine = create_engine(_URL, connect_args={"check_same_thread": False})
-else:
+def _make_engine():
+    url = os.getenv("DATABASE_URL", "sqlite:///stocksight.db")
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if url.startswith("sqlite"):
+        return create_engine(url, connect_args={"check_same_thread": False})
     from sqlalchemy.pool import NullPool
-    # Embed sslmode in URL so it works regardless of psycopg2 version
-    if "sslmode" not in _URL:
-        _URL += ("&" if "?" in _URL else "?") + "sslmode=require"
-    # NullPool is correct for Streamlit Cloud — no persistent processes
-    engine = create_engine(_URL, poolclass=NullPool)
+    if "sslmode" not in url:
+        url += ("&" if "?" in url else "?") + "sslmode=require"
+    return create_engine(url, poolclass=NullPool)
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+# Engine built fresh on every import so secret changes are always picked up
+engine = _make_engine()
+
+
+class SessionLocal:
+    """Always builds a fresh engine so DATABASE_URL changes take effect immediately."""
+    def __new__(cls):
+        eng = _make_engine()
+        return sessionmaker(bind=eng, autoflush=False, autocommit=False)()
 
 
 class Base(DeclarativeBase):
@@ -68,4 +72,4 @@ class WatchlistItem(Base):
 
 
 def init_db() -> None:
-    Base.metadata.create_all(engine)
+    Base.metadata.create_all(_make_engine())

@@ -5,7 +5,7 @@ Default admin: admin@stocksight.in / Admin@123!
 """
 import streamlit as st
 
-from core.auth import authenticate, bootstrap, current_user, login, register_user
+from core.auth import authenticate, bootstrap, current_user, login, register_user, _restore_from_cookie
 from core.styles import inject_css, mhtml
 
 st.set_page_config(
@@ -18,8 +18,8 @@ st.set_page_config(
 bootstrap()   # init DB + seed admin on first run
 inject_css()
 
-# Already logged in → go to market home
-if current_user():
+# Already logged in (session state or persistent cookie) → go to market home
+if current_user() or _restore_from_cookie():
     st.switch_page("pages/0_Market_Home.py")
 
 # ── Hero ──────────────────────────────────────────────────────────────────────

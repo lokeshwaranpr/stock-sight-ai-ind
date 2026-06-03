@@ -4,7 +4,13 @@ All DB access is scoped inside `with SessionLocal()` to ensure proper cleanup.
 """
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
+import os
 import re
+import time
 from datetime import datetime, timezone
 from typing import TypedDict
 
@@ -13,6 +19,10 @@ import streamlit as st
 from sqlalchemy.exc import IntegrityError
 
 from core.database import SessionLocal, User, WatchlistItem, init_db
+
+_COOKIE_NAME = "ss_auth"
+_COOKIE_DAYS = 30
+_SECRET      = os.getenv("SECRET_KEY", "stocksight-default-secret")
 
 
 # ── Session type ──────────────────────────────────────────────────────────────
@@ -105,13 +115,58 @@ def _to_session(user: User) -> UserSession:
     }
 
 
+# ── Cookie helpers ────────────────────────────────────────────────────────────
+
+def _make_token(user: UserSession) -> str:
+    data    = {**user, "exp": int(time.time()) + _COOKIE_DAYS * 86400}
+    payload = json.dumps(data, sort_keys=True, separators=(",", ":"))
+    sig     = hmac.new(_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(f"{payload}|{sig}".encode()).decode()
+
+
+def _verify_token(token: str) -> UserSession | None:
+    try:
+        decoded      = base64.urlsafe_b64decode(token.encode()).decode()
+        payload, sig = decoded.rsplit("|", 1)
+        expected     = hmac.new(_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(sig, expected):
+            data = json.loads(payload)
+            if data.get("exp", 0) > time.time():
+                return {k: v for k, v in data.items() if k != "exp"}  # type: ignore[return-value]
+    except Exception:
+        pass
+    return None
+
+
+def _get_cookie_manager():
+    try:
+        import extra_streamlit_components as stx
+        return stx.CookieManager(key="auth_cookies")
+    except Exception:
+        return None
+
+
 # ── Session helpers ───────────────────────────────────────────────────────────
 
 def login(session_data: UserSession) -> None:
     st.session_state["user"] = session_data
+    mgr = _get_cookie_manager()
+    if mgr is not None:
+        try:
+            from datetime import timedelta
+            mgr.set(_COOKIE_NAME, _make_token(session_data),
+                    expires_at=datetime.now() + timedelta(days=_COOKIE_DAYS))
+        except Exception:
+            pass
 
 
 def logout() -> None:
+    mgr = _get_cookie_manager()
+    if mgr is not None:
+        try:
+            mgr.delete(_COOKIE_NAME)
+        except Exception:
+            pass
     for k in list(st.session_state.keys()):
         del st.session_state[k]
     st.switch_page("Home.py")
@@ -121,9 +176,26 @@ def current_user() -> UserSession | None:
     return st.session_state.get("user")
 
 
+def _restore_from_cookie() -> UserSession | None:
+    """Try to restore session from persistent cookie."""
+    mgr = _get_cookie_manager()
+    if mgr is None:
+        return None
+    try:
+        token = mgr.get(_COOKIE_NAME)
+        if token:
+            user = _verify_token(token)
+            if user:
+                st.session_state["user"] = user
+                return user
+    except Exception:
+        pass
+    return None
+
+
 def require_auth() -> UserSession:
     """Page guard — redirects to login if unauthenticated."""
-    user = current_user()
+    user = current_user() or _restore_from_cookie()
     if not user:
         st.switch_page("Home.py")
     return user  # type: ignore[return-value]
